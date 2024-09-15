@@ -47,6 +47,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    aaptOptions {
+        noCompress += listOf("filamat", "ktx")
+    }
+    /*androidResources {
+        noCompress += listOf("filamat", "ktx")
+    }*/
 }
 
 dependencies {
@@ -59,6 +65,12 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    // Filament
+    implementation(libs.filament.android)
+    implementation(libs.gltfio.android)
+    implementation(libs.filament.utils.android)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
