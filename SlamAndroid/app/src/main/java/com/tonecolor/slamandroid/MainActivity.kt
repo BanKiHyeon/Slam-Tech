@@ -1,6 +1,8 @@
 package com.tonecolor.slamandroid
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
@@ -19,6 +21,8 @@ import com.google.android.filament.Engine
 import com.google.android.filament.Entity
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
@@ -30,7 +34,17 @@ import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
+import com.google.android.filament.VertexBuffer
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
+import com.google.android.filament.RenderableManager.PrimitiveType
 import com.tonecolor.slamandroid.ui.theme.SlamAndroidTheme
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.Channels
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
 
@@ -52,6 +66,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var scene: Scene
     private lateinit var view: View
     private lateinit var camera: Camera
+
+    private lateinit var material: Material
+    private lateinit var vertexBuffer: VertexBuffer
+    private lateinit var indexBuffer: IndexBuffer
 
     private var frameScheduler = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -123,8 +141,14 @@ class MainActivity : ComponentActivity() {
 
         renderable = EntityManager.get().create()
 
+        setMaterial()
+        setMesh()
+
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            //.boundingBox(Box(-0.5f, -0.5f, 0.0f, 0.5f, 0.5f, 0.01f))
+            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6)
+            .material(0, material.defaultInstance)
             .build(engine, renderable)
 
         scene.addEntity(renderable)
@@ -133,6 +157,82 @@ class MainActivity : ComponentActivity() {
             SlamAndroidTheme {
                 SurfaceViewContent(Modifier.fillMaxSize(), MaterialTheme.colorScheme.background)
             }
+        }
+    }
+
+    private fun setMesh() {
+        val intSize = 4
+        val floatSize = 4
+        val shortSize = 2
+        val vertexSize = 3 * floatSize + intSize
+
+        data class Vertex(val x: Float, val y: Float, val z: Float, val color: Int)
+        fun ByteBuffer.put(v: Vertex): ByteBuffer {
+            putFloat(v.x)
+            putFloat(v.y)
+            putFloat(v.z)
+            putInt(v.color)
+            return this
+        }
+
+        val vertexCount = 4
+
+        val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
+            .order(ByteOrder.nativeOrder())
+            .put(Vertex(0.5f,  -0.5f, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex( 0.5f,  0.5f, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(-0.5f, -0.5f, 0.0f, 0xff00ff00.toInt()))
+            .put(Vertex( -0.5f, 0.5f, 0.0f, 0xff0000ff.toInt()))
+            .flip()
+
+        vertexBuffer = VertexBuffer.Builder()
+            .bufferCount(1)
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexAttribute.COLOR, 0, AttributeType.UBYTE4, 3 * floatSize, vertexSize)
+            .normalized(VertexAttribute.COLOR)
+            .build(engine)
+
+        vertexBuffer.setBufferAt(engine, 0, vertexData)
+
+        val indexData = ByteBuffer.allocate(6 * shortSize)
+            .order(ByteOrder.nativeOrder())
+            .putShort(0)
+            .putShort(1)
+            .putShort(2)
+            .putShort(1)
+            .putShort(3)
+            .putShort(2)
+            .flip()
+
+        indexBuffer = IndexBuffer.Builder()
+            .indexCount(6)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(engine)
+
+        indexBuffer.setBuffer(engine, indexData)
+    }
+
+    private fun setMaterial() {
+        assets.openFd("materials/baked_color.filamat").use { fd ->
+            val input = fd.createInputStream()
+            val dst = ByteBuffer.allocate(fd.length.toInt())
+
+            val src = Channels.newChannel(input)
+            src.read(dst)
+            src.close()
+
+            val mat = dst.apply { rewind() }
+
+            material = Material.Builder().payload(mat, mat.remaining()).build(engine)
+            material.compile(
+                Material.CompilerPriorityQueue.HIGH,
+                Material.UserVariantFilterBit.ALL,
+                Handler(Looper.getMainLooper())
+            ) {
+                android.util.Log.i("Material", "Material " + material.name + " compiled.")
+            }
+            engine.flush()
         }
     }
 
@@ -169,6 +269,9 @@ class MainActivity : ComponentActivity() {
         engine.destroyView(view)
         engine.destroyScene(scene)
         engine.destroyCameraComponent(camera.entity)
+        engine.destroyVertexBuffer(vertexBuffer)
+        engine.destroyIndexBuffer(indexBuffer)
+        engine.destroyMaterial(material)
 
         val entityManager = EntityManager.get()
         entityManager.destroy(renderable)
