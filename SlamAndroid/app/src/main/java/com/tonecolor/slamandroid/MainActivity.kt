@@ -1,11 +1,14 @@
 package com.tonecolor.slamandroid
 
+import android.animation.ValueAnimator
+import android.opengl.Matrix
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
+import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +73,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var material: Material
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
+
+    private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
     private var frameScheduler = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -152,6 +157,8 @@ class MainActivity : ComponentActivity() {
             .build(engine, renderable)
 
         scene.addEntity(renderable)
+
+        startAnimation()
 
         setContent {
             SlamAndroidTheme {
@@ -236,6 +243,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startAnimation() {
+        animator.interpolator = LinearInterpolator()
+        animator.duration = 4000
+        animator.repeatMode = ValueAnimator.RESTART
+        animator.repeatCount = ValueAnimator.INFINITE
+        animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
+            val transformMatrix = FloatArray(16)
+            override fun onAnimationUpdate(a: ValueAnimator) {
+                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
+                val tcm = engine.transformManager
+                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+            }
+        })
+        animator.start()
+    }
+
     @Composable
     fun SurfaceViewContent(modifier: Modifier, color: Color) {
         Surface(
@@ -251,17 +274,20 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
+        animator.start()
     }
 
     override fun onPause() {
         super.onPause()
         choreographer.removeFrameCallback(frameScheduler)
+        animator.cancel()
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         choreographer.removeFrameCallback(frameScheduler)
+        animator.cancel()
         uiHelper.detach()
 
         engine.destroyEntity(renderable)
