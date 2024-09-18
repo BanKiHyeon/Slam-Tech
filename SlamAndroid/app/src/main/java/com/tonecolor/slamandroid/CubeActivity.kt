@@ -26,6 +26,7 @@ import com.google.android.filament.Entity
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
 import com.google.android.filament.IndexBuffer
+import com.google.android.filament.LightManager
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.MathUtils
@@ -91,6 +92,9 @@ class CubeActivity : ComponentActivity() {
 
     @Entity
     private var renderable = 0
+
+    @Entity
+    private var light = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -158,6 +162,18 @@ class CubeActivity : ComponentActivity() {
             .build(engine, renderable)
 
         scene.addEntity(renderable)
+
+        light = EntityManager.get().create()
+
+        val (r, g, b) = Colors.cct(5_500.0f)
+        LightManager.Builder(LightManager.Type.DIRECTIONAL)
+            .color(r, g, b)
+            .intensity(110_000.0f)
+            .direction(0.0f, -0.5f, -1.0f)
+            .castShadows(true)
+            .build(engine, light)
+
+        scene.addEntity(light)
 
         //startAnimation()
 
