@@ -178,7 +178,7 @@ class CubeActivity : ComponentActivity() {
         camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
         camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
-        //startAnimation()
+        startAnimation()
 
         setContent {
             SlamAndroidTheme {
@@ -309,13 +309,13 @@ class CubeActivity : ComponentActivity() {
 
     private fun startAnimation() {
         animator.interpolator = LinearInterpolator()
-        animator.duration = 4000
+        animator.duration = 6000
         animator.repeatMode = ValueAnimator.RESTART
         animator.repeatCount = ValueAnimator.INFINITE
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             val transformMatrix = FloatArray(16)
             override fun onAnimationUpdate(a: ValueAnimator) {
-                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
+                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 1.0f, 1.0f, 1.0f)
                 val tcm = engine.transformManager
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
             }
