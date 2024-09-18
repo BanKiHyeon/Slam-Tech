@@ -175,6 +175,9 @@ class CubeActivity : ComponentActivity() {
 
         scene.addEntity(light)
 
+        camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
+        camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+
         //startAnimation()
 
         setContent {
