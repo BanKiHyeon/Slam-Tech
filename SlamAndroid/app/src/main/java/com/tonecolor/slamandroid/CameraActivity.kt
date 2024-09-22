@@ -2,6 +2,7 @@ package com.tonecolor.slamandroid
 
 import android.animation.ValueAnimator
 import android.opengl.Matrix
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +12,7 @@ import android.view.SurfaceView
 import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -78,6 +80,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
     private lateinit var cameraHelper: CameraHelper
 
     private var frameScheduler = object : Choreographer.FrameCallback {
+        @RequiresApi(Build.VERSION_CODES.Q)
         override fun doFrame(frameTimeNanos: Long) {
             choreographer.postFrameCallback(this)
             if (uiHelper.isReadyToRender) {
@@ -108,13 +111,17 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
         uiHelper.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(surface: Surface) {
-                swapChain?.let { engine.destroySwapChain(it) }
+                /*swapChain?.let { engine.destroySwapChain(it) }
                 val flags = if (SwapChain.isSRGBSwapChainSupported(engine)) {
                     uiHelper.swapChainFlags or SwapChainFlags.CONFIG_SRGB_COLORSPACE
                 } else {
                     uiHelper.swapChainFlags
                 }
                 swapChain = engine.createSwapChain(surface, flags)
+                displayHelper.attach(renderer, surfaceView.display)
+                */
+                swapChain?.let { engine.destroySwapChain(it) }
+                swapChain = engine.createSwapChain(surface)
                 displayHelper.attach(renderer, surfaceView.display)
             }
 
@@ -128,6 +135,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             }
 
             override fun onResized(width: Int, height: Int) {
+                /*
                 val zoom = 1.5
                 val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(
@@ -135,6 +143,13 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
                     -aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0
                 )
                 view.viewport = Viewport(0, 0, width, height)
+                FilamentHelper.synchronizePendingFrames(engine)
+                */
+                val aspect = width.toDouble() / height.toDouble()
+                camera.setProjection(45.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
+
+                view.viewport = Viewport(0, 0, width, height)
+
                 FilamentHelper.synchronizePendingFrames(engine)
             }
         }
@@ -220,10 +235,10 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(0.5f, -0.5f, 0f, tf))
-            .put(Vertex(0.5f, 0.5f, 0f, tf))
-            .put(Vertex(-0.5f, -0.5f, 0f, tf))
-            .put(Vertex(-0.5f, 0.5f, 0f, tf))
+            .put(Vertex(0.5f, -0.5f, 1f, tf))
+            .put(Vertex(0.5f, 0.5f, 1f, tf))
+            .put(Vertex(-0.5f, -0.5f, 1f, tf))
+            .put(Vertex(-0.5f, 0.5f, 1f, tf))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
@@ -264,19 +279,10 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             val mat = dst.apply { rewind() }
 
             material = Material.Builder().payload(mat, mat.remaining()).build(engine)
-            material.compile(
-                Material.CompilerPriorityQueue.HIGH,
-                Material.UserVariantFilterBit.ALL,
-                Handler(Looper.getMainLooper())
-            ) {
-                android.util.Log.i("Material", "Material " + material.name + " compiled.")
-            }
-            engine.flush()
         }
 
         materialInstance = material.createInstance()
         materialInstance.setParameter("baseColor", Colors.RgbType.SRGB, 1.0f, 0.85f, 0.57f)
-        materialInstance.setParameter("metallic", 0.0f)
         materialInstance.setParameter("roughness", 0.3f)
     }
 

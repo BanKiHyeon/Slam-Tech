@@ -152,7 +152,7 @@ class CameraHelper(val activity: Activity, private val filamentEngine: Engine, p
             }, null)
     }
 
-    public fun openCamera(cameraId : String = "0") {
+    fun openCamera(cameraId : String = "0") {
         val manager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
         //TODO You must implement logic to check whether the camera available on the device is a valid camera.
