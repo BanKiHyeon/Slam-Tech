@@ -1,15 +1,10 @@
 package com.tonecolor.slamandroid
 
-import android.animation.ValueAnimator
-import android.opengl.Matrix
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
-import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -32,14 +27,12 @@ import com.google.android.filament.IndexBuffer
 import com.google.android.filament.LightManager
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
-import com.google.android.filament.MathUtils
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
-import com.google.android.filament.SwapChainFlags
 import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
@@ -235,10 +228,10 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(0.5f, -0.5f, 1f, tf))
-            .put(Vertex(0.5f, 0.5f, 1f, tf))
-            .put(Vertex(-0.5f, -0.5f, 1f, tf))
-            .put(Vertex(-0.5f, 0.5f, 1f, tf))
+            .put(Vertex(1f, -1.0f, 1f, tf))
+            .put(Vertex(1f, 1.0f, 1f, tf))
+            .put(Vertex(-1f, -1.0f, 1f, tf))
+            .put(Vertex(-1f, 1.0f, 1f, tf))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
@@ -268,7 +261,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
     }
 
     private fun setMaterial() {
-        assets.openFd("materials/lit.filamat").use { fd ->
+        assets.openFd("materials/camera_lit.filamat").use { fd ->
             val input = fd.createInputStream()
             val dst = ByteBuffer.allocate(fd.length.toInt())
 
