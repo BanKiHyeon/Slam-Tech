@@ -1,6 +1,22 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("filament-tools-plugin")
+}
+
+if (project.properties["filamentPluginEnabled"]?.toString()?.toBoolean() == true) {
+    filamentTools {
+        // Material generation: .mat -> .filamat
+        materialInputDir.set(project.layout.projectDirectory.dir("src/main/materials"))
+        materialOutputDir.set(project.layout.projectDirectory.dir("src/main/assets/materials"))
+    }
+
+    tasks.named("clean").configure {
+        doFirst {
+            delete("src/main/assets/materials")
+            delete("src/main/assets/environments")
+        }
+    }
 }
 
 android {
@@ -55,6 +71,8 @@ android {
     }*/
 }
 
+
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -68,6 +86,7 @@ dependencies {
 
     // Filament
     implementation(libs.filament.android)
+    implementation(libs.filamat.android)
     implementation(libs.gltfio.android)
     implementation(libs.filament.utils.android)
     
