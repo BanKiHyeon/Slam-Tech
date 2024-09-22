@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
@@ -50,7 +51,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
 
-class CameraActivity : ComponentActivity() {
+class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsResultCallback  {
     init {
         Filament.init()
     }
@@ -74,10 +75,15 @@ class CameraActivity : ComponentActivity() {
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
 
+    private lateinit var cameraHelper: CameraHelper
+
     private var frameScheduler = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             choreographer.postFrameCallback(this)
             if (uiHelper.isReadyToRender) {
+
+                cameraHelper.pushExternalImageToFilament()
+
                 if (swapChain != null && renderer.beginFrame(swapChain!!, frameTimeNanos)) {
                     renderer.render(view)
                     renderer.endFrame()
@@ -174,6 +180,9 @@ class CameraActivity : ComponentActivity() {
 
         camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
         camera.lookAt(0.0, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+
+        cameraHelper = CameraHelper(this, engine, materialInstance)
+        cameraHelper.openCamera()
 
         setContent {
             SlamAndroidTheme {
@@ -286,11 +295,13 @@ class CameraActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
+        cameraHelper.onResume()
     }
 
     override fun onPause() {
         super.onPause()
         choreographer.removeFrameCallback(frameScheduler)
+        cameraHelper.onPause()
     }
 
     override fun onDestroy() {
@@ -299,6 +310,7 @@ class CameraActivity : ComponentActivity() {
         choreographer.removeFrameCallback(frameScheduler)
         uiHelper.detach()
 
+        engine.destroyEntity(light)
         engine.destroyEntity(renderable)
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
@@ -306,12 +318,25 @@ class CameraActivity : ComponentActivity() {
         engine.destroyCameraComponent(camera.entity)
         engine.destroyVertexBuffer(vertexBuffer)
         engine.destroyIndexBuffer(indexBuffer)
+        engine.destroyMaterialInstance(materialInstance)
         engine.destroyMaterial(material)
 
         val entityManager = EntityManager.get()
+        entityManager.destroy(light)
         entityManager.destroy(renderable)
         entityManager.destroy(camera.entity)
 
         engine.destroy()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (!cameraHelper.onRequestPermissionsResult(requestCode, grantResults)) {
+            this.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        }
     }
 }
