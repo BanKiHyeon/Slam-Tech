@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onResized(width: Int, height: Int) {
-                val zoom = 1.5
+                val zoom = 2.0
                 val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(
                     Camera.Projection.ORTHO,
@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
 
         scene.addEntity(renderable)
 
-        startAnimation()
+        //startAnimation()
 
         setContent {
             SlamAndroidTheme {
@@ -285,20 +285,20 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
-        animator.start()
+        //animator.start()
     }
 
     override fun onPause() {
         super.onPause()
         choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel()
+        //animator.cancel()
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel()
+        //animator.cancel()
         uiHelper.detach()
 
         engine.destroyEntity(renderable)
