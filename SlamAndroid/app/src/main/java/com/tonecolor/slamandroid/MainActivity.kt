@@ -5,12 +5,16 @@ import android.opengl.Matrix
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.util.Log
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
+import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -93,6 +97,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        enableEdgeToEdge()
 
         surfaceView = SurfaceView(this)
         choreographer = Choreographer.getInstance()
@@ -184,12 +190,17 @@ class MainActivity : ComponentActivity() {
 
         val vertexCount = 4
 
+        val metrics = resources.displayMetrics
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
+        val aspectRatio = screenHeight.toFloat() / screenWidth.toFloat()
+
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(0.5f,  -0.5f, 0.0f, 0xffff0000.toInt()))
-            .put(Vertex( 0.5f,  0.5f, 0.0f, 0xffff0000.toInt()))
-            .put(Vertex(-0.5f, -0.5f, 0.0f, 0xff00ff00.toInt()))
-            .put(Vertex( -0.5f, 0.5f, 0.0f, 0xff0000ff.toInt()))
+            .put(Vertex(-1f, -aspectRatio, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(1f, -aspectRatio, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(-1f, aspectRatio, 0.0f, 0xff00ff00.toInt()))
+            .put(Vertex(1f, aspectRatio, 0.0f, 0xff0000ff.toInt()))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
