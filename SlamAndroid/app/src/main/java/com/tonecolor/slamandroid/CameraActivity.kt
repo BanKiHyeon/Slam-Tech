@@ -128,8 +128,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             }
 
             override fun onResized(width: Int, height: Int) {
-                /*
-                val zoom = 1.5
+                val zoom = 1.0
                 val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(
                     Camera.Projection.ORTHO,
@@ -137,13 +136,12 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
                 )
                 view.viewport = Viewport(0, 0, width, height)
                 FilamentHelper.synchronizePendingFrames(engine)
-                */
-                val aspect = width.toDouble() / height.toDouble()
+                /*val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(45.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
 
                 view.viewport = Viewport(0, 0, width, height)
 
-                FilamentHelper.synchronizePendingFrames(engine)
+                FilamentHelper.synchronizePendingFrames(engine)*/
             }
         }
 
@@ -228,10 +226,10 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(1f, -1.0f, 1f, tf))
-            .put(Vertex(1f, 1.0f, 1f, tf))
-            .put(Vertex(-1f, -1.0f, 1f, tf))
-            .put(Vertex(-1f, 1.0f, 1f, tf))
+            .put(Vertex(1f, -1.0f, 0f, tf))
+            .put(Vertex(1f, 1.0f, 0f, tf))
+            .put(Vertex(-1f, -1.0f, 0f, tf))
+            .put(Vertex(-1f, 1.0f, 0f, tf))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
