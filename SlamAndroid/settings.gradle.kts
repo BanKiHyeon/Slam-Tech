@@ -10,6 +10,7 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -19,6 +20,13 @@ dependencyResolutionManagement {
     }
 }
 
+
+
 rootProject.name = "SlamAndroid"
 include(":app")
- 
+
+// Libraries
+include(":filament-android")
+include(":filamat-android")
+include(":gltfio-android")
+include(":filament-utils-android")

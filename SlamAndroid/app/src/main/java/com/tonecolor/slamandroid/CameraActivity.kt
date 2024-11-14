@@ -28,19 +28,17 @@ import com.google.android.filament.LightManager
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
-import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
 import com.google.android.filament.VertexBuffer
-import com.google.android.filament.VertexBuffer.AttributeType
-import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
+
 import com.tonecolor.slamandroid.ui.theme.SlamAndroidTheme
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -166,7 +164,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
             //.boundingBox(Box(-0.5f, -0.5f, 0.0f, 0.5f, 0.5f, 0.01f))
-            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6)
+            .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6)
             .material(0, materialInstance)
             .build(engine, renderable)
 
@@ -235,8 +233,8 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         vertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(vertexCount)
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
-            .attribute(VertexAttribute.TANGENTS, 0, AttributeType.FLOAT4, 3 * floatSize, vertexSize)
+            .attribute(VertexBuffer.VertexAttribute.POSITION, 0, VertexBuffer.AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexBuffer.VertexAttribute.TANGENTS, 0, VertexBuffer.AttributeType.FLOAT4, 3 * floatSize, vertexSize)
             .build(engine)
 
         vertexBuffer.setBufferAt(engine, 0, vertexData)
