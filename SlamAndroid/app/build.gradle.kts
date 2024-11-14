@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.application")
+    id("kotlin-android")
     id("filament-tools-plugin")
 }
 
@@ -85,11 +85,15 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Filament
-    implementation(libs.filament.android)
-    implementation(libs.filamat.android)
-    implementation(libs.gltfio.android)
-    implementation(libs.filament.utils.android)
-    
+    implementation(project(":filament-android"))
+    implementation(project(":filamat-android"))
+    implementation(project(":gltfio-android"))
+    implementation(project(":filament-utils-android"))
+//  implementation(libs.filament.android)
+//  implementation(libs.filamat.android)
+//  implementation(libs.gltfio.android)
+//  implementation(libs.filament.utils.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
