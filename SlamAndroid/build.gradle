@@ -1,0 +1,167 @@
+buildscript {
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.6.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
+    }
+
+    def path = providers
+            .gradleProperty("com.google.android.filament.dist-dir")
+            .get()
+
+    def directory = objects.fileProperty().fileValue(new File(path)).getAsFile().get()
+    def filamentPath = directory.absolutePath
+    filamentPath = filamentPath.replace(File.separator, '/')
+    def excludeVulkan = providers
+            .gradleProperty("com.google.android.filament.exclude-vulkan")
+            .isPresent()
+
+    def matdbg = providers
+            .gradleProperty("com.google.android.filament.matdbg")
+            .isPresent()
+
+    def matnopt = providers
+            .gradleProperty("com.google.android.filament.matnopt")
+            .isPresent()
+
+    def abis = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+    def newAbis = providers
+            .gradleProperty("com.google.android.filament.abis")
+            .get()
+            .split(',')
+    if (!newAbis.contains("all")) {
+        abis = newAbis
+    }
+
+    ext.versions = [
+            'jdk'                 : 17,
+            'minSdk'              : 21,
+            'targetSdk'           : 34,
+            'compileSdk'          : 34,
+            'kotlin'              : '2.0.0',
+            'kotlin_coroutines'   : '1.9.0-RC',
+            'buildTools'          : '34.0.0',
+            'ndk'                 : '27.0.11718014',
+            'androidx_core'       : '1.13.1',
+            'androidx_annotations': '1.8.0'
+    ]
+
+    ext.deps = [
+            'androidx'  : [
+                    'annotations': "androidx.annotation:annotation:${versions.androidx_annotations}",
+                    'core'       : "androidx.core:core:${versions.androidx_core}",
+            ],
+            'kotlin'    : "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions.kotlin}",
+            'coroutines': [
+                    'core'   : "org.jetbrains.kotlinx:kotlinx-coroutines-core:${versions.kotlin_coroutines}",
+                    'android': "org.jetbrains.kotlinx:kotlinx-coroutines-android:${versions.kotlin_coroutines}",
+            ]
+    ]
+
+    ext.cmakeArgs = [
+            "--no-warn-unused-cli",
+            "-DANDROID_PIE=ON",
+            "-DANDROID_PLATFORM=21",
+            "-DANDROID_STL=c++_static",
+            "-DFILAMENT_DIST_DIR=${filamentPath}".toString(),
+            "-DFILAMENT_SUPPORTS_VULKAN=${excludeVulkan ? 'OFF' : 'ON'}".toString(),
+            "-DFILAMENT_ENABLE_MATDBG=${matdbg ? 'ON' : 'OFF'}".toString(),
+            "-DFILAMENT_DISABLE_MATOPT=${matnopt ? 'ON' : 'OFF'}".toString()
+    ]
+
+    ext.cppFlags = [
+            "-std=c++17",
+            "-fno-stack-protector",
+            "-fno-exceptions",
+            "-fno-unwind-tables",
+            "-fno-asynchronous-unwind-tables",
+            "-fno-rtti",
+            "-ffast-math",
+            "-fno-finite-math-only",
+            "-ffp-contract=fast",
+            "-fvisibility-inlines-hidden",
+            "-fvisibility=hidden",
+            "-fomit-frame-pointer",
+            "-ffunction-sections",
+            "-fdata-sections",
+            "-no-canonical-prefixes",
+            "-Wformat",
+            "-Werror=format-security",
+            "-Wno-unused-command-line-argument",
+            "-Wl,--gc-sections",
+            "-Wl,-Bsymbolic-functions",
+            "-Wl,--hash-style=both", // Required to support API levels below 23
+    ]
+
+    ext.abis = abis
+
+    repositories {
+        mavenCentral()
+        google()
+    }
+}
+
+subprojects {
+    group = GROUP
+    version = VERSION_NAME
+
+    if (
+            name == "filamat-android"
+                    || name == "filament-android"
+                    || name == "filament-utils-android"
+                    || name == "gltfio-android"
+    ) {
+        apply plugin: 'com.android.library'
+
+        android {
+            buildToolsVersion versions.buildTools
+            compileSdkVersion versions.compileSdk
+            ndkVersion versions.ndk
+
+            defaultConfig {
+                minSdkVersion versions.minSdk
+                targetSdkVersion versions.targetSdk
+
+                externalNativeBuild {
+                    cmake {
+                        arguments.addAll(rootProject.ext.cmakeArgs)
+                        cppFlags.addAll(rootProject.ext.cppFlags)
+                    }
+                }
+
+                ndk {
+                    //noinspection ChromeOsAbiSupport
+                    abiFilters(*rootProject.ext.abis)
+                }
+
+                consumerProguardFiles '../proguard-rules.pro'
+            }
+
+            externalNativeBuild {
+                cmake {
+                    version "3.19.0+"
+                    path "CMakeLists.txt"
+                }
+            }
+
+            sourceSets {
+                main {
+                    jni.srcDirs "src/main/cpp"
+                }
+            }
+
+            compileOptions {
+                sourceCompatibility versions.jdk
+                targetCompatibility versions.jdk
+            }
+        }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    gradle.taskGraph.allTasks.each {
+        it.onlyIf {
+            !it.project.ext.has('isSample') ||
+                    !project.hasProperty('com.google.android.filament.skip-samples')
+        }
+    }
+}
