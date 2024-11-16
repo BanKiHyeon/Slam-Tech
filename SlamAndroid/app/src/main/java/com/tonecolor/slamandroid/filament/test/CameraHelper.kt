@@ -1,4 +1,4 @@
-package com.tonecolor.slamandroid
+package com.tonecolor.slamandroid.filament.test
 
 import android.app.Activity
 import android.content.Context
@@ -13,7 +13,6 @@ import android.view.Surface
 import androidx.core.content.ContextCompat
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.graphics.ImageFormat
 import android.hardware.HardwareBuffer
 import android.media.ImageReader

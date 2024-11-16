@@ -1,4 +1,4 @@
-package com.tonecolor.slamandroid
+package com.tonecolor.slamandroid.filament.test
 
 import android.animation.ValueAnimator
 import android.opengl.Matrix
@@ -11,6 +11,7 @@ import android.view.SurfaceView
 import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,37 +21,34 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
-import com.google.android.filament.Colors
 import com.google.android.filament.Engine
 import com.google.android.filament.Entity
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
 import com.google.android.filament.IndexBuffer
-import com.google.android.filament.LightManager
 import com.google.android.filament.Material
-import com.google.android.filament.MaterialInstance
-import com.google.android.filament.MathUtils
 import com.google.android.filament.RenderableManager
-import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
 import com.google.android.filament.SwapChainFlags
-import com.google.android.filament.VertexBuffer
-import com.google.android.filament.VertexBuffer.AttributeType
-import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
+import com.google.android.filament.VertexBuffer
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
+import com.google.android.filament.RenderableManager.PrimitiveType
 import com.tonecolor.slamandroid.ui.theme.SlamAndroidTheme
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
 
-class CubeActivity : ComponentActivity() {
+class TriangleActivity : ComponentActivity() {
+
     companion object {
         init {
             Filament.init()
@@ -71,8 +69,6 @@ class CubeActivity : ComponentActivity() {
     private lateinit var camera: Camera
 
     private lateinit var material: Material
-    private lateinit var materialInstance: MaterialInstance
-
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
 
@@ -93,11 +89,10 @@ class CubeActivity : ComponentActivity() {
     @Entity
     private var renderable = 0
 
-    @Entity
-    private var light = 0
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        enableEdgeToEdge()
 
         surfaceView = SurfaceView(this)
         choreographer = Choreographer.getInstance()
@@ -126,7 +121,7 @@ class CubeActivity : ComponentActivity() {
             }
 
             override fun onResized(width: Int, height: Int) {
-                val zoom = 1.5
+                val zoom = 2.0
                 val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(
                     Camera.Projection.ORTHO,
@@ -138,47 +133,32 @@ class CubeActivity : ComponentActivity() {
         }
         uiHelper.attachTo(surfaceView)
 
-        engine = Engine.create()
+        engine = Engine.Builder().featureLevel(Engine.FeatureLevel.FEATURE_LEVEL_0).build()
         renderer = engine.createRenderer()
         scene = engine.createScene()
         view = engine.createView()
         camera = engine.createCamera(engine.entityManager.create())
 
         scene.skybox = Skybox.Builder().color(0.5294f, 0.8078f, 0.9804f, 1.0f).build(engine)
-        //view.isPostProcessingEnabled = false
+        view.isPostProcessingEnabled = false
         view.camera = camera
         view.scene = scene
+
+        renderable = EntityManager.get().create()
 
         setMaterial()
         setMesh()
 
-        renderable = EntityManager.get().create()
-
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
             //.boundingBox(Box(-0.5f, -0.5f, 0.0f, 0.5f, 0.5f, 0.01f))
-            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6 * 6)
-            .material(0, materialInstance)
+            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6)
+            .material(0, material.defaultInstance)
             .build(engine, renderable)
 
         scene.addEntity(renderable)
 
-        light = EntityManager.get().create()
-
-        val (r, g, b) = Colors.cct(5_500.0f)
-        LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(r, g, b)
-            .intensity(110_000.0f)
-            .direction(0.0f, -0.5f, -1.0f)
-            .castShadows(true)
-            .build(engine, light)
-
-        scene.addEntity(light)
-
-        camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
-        camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
-
-        startAnimation()
+        //startAnimation()
 
         setContent {
             SlamAndroidTheme {
@@ -188,99 +168,65 @@ class CubeActivity : ComponentActivity() {
     }
 
     private fun setMesh() {
+        val intSize = 4
         val floatSize = 4
         val shortSize = 2
-        val vertexSize = 3 * floatSize + 4 * floatSize
+        val vertexSize = 3 * floatSize + intSize
 
-        @Suppress("ArrayInDataClass")
-        data class Vertex(val x: Float, val y: Float, val z: Float, val tangents: FloatArray)
-
+        data class Vertex(val x: Float, val y: Float, val z: Float, val color: Int)
         fun ByteBuffer.put(v: Vertex): ByteBuffer {
             putFloat(v.x)
             putFloat(v.y)
             putFloat(v.z)
-            v.tangents.forEach { putFloat(it) }
+            putInt(v.color)
             return this
         }
 
-        val vertexCount = 6 * 4
+        val vertexCount = 4
 
-        val tfPX = FloatArray(4)
-        val tfNX = FloatArray(4)
-        val tfPY = FloatArray(4)
-        val tfNY = FloatArray(4)
-        val tfPZ = FloatArray(4)
-        val tfNZ = FloatArray(4)
-
-        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, tfPX)
-        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f, tfNX)
-        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, tfPY)
-        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, tfNY)
-        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, tfPZ)
-        MathUtils.packTangentFrame(0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, tfNZ)
+        val metrics = resources.displayMetrics
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
+        val aspectRatio = screenHeight.toFloat() / screenWidth.toFloat()
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            // Face -Z
-            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNZ))
-            .put(Vertex(-1.0f, 1.0f, -1.0f, tfNZ))
-            .put(Vertex(1.0f, 1.0f, -1.0f, tfNZ))
-            .put(Vertex(1.0f, -1.0f, -1.0f, tfNZ))
-            // Face +X
-            .put(Vertex(1.0f, -1.0f, -1.0f, tfPX))
-            .put(Vertex(1.0f, 1.0f, -1.0f, tfPX))
-            .put(Vertex(1.0f, 1.0f, 1.0f, tfPX))
-            .put(Vertex(1.0f, -1.0f, 1.0f, tfPX))
-            // Face +Z
-            .put(Vertex(-1.0f, -1.0f, 1.0f, tfPZ))
-            .put(Vertex(1.0f, -1.0f, 1.0f, tfPZ))
-            .put(Vertex(1.0f, 1.0f, 1.0f, tfPZ))
-            .put(Vertex(-1.0f, 1.0f, 1.0f, tfPZ))
-            // Face -X
-            .put(Vertex(-1.0f, -1.0f, 1.0f, tfNX))
-            .put(Vertex(-1.0f, 1.0f, 1.0f, tfNX))
-            .put(Vertex(-1.0f, 1.0f, -1.0f, tfNX))
-            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNX))
-            // Face -Y
-            .put(Vertex(-1.0f, -1.0f, 1.0f, tfNY))
-            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNY))
-            .put(Vertex(1.0f, -1.0f, -1.0f, tfNY))
-            .put(Vertex(1.0f, -1.0f, 1.0f, tfNY))
-            // Face +Y
-            .put(Vertex(-1.0f, 1.0f, -1.0f, tfPY))
-            .put(Vertex(-1.0f, 1.0f, 1.0f, tfPY))
-            .put(Vertex(1.0f, 1.0f, 1.0f, tfPY))
-            .put(Vertex(1.0f, 1.0f, -1.0f, tfPY))
+            .put(Vertex(-1f, -aspectRatio, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(1f, -aspectRatio, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(-1f, aspectRatio, 0.0f, 0xff00ff00.toInt()))
+            .put(Vertex(1f, aspectRatio, 0.0f, 0xff0000ff.toInt()))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(vertexCount)
             .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
-            .attribute(VertexAttribute.TANGENTS, 0, AttributeType.FLOAT4, 3 * floatSize, vertexSize)
+            .attribute(VertexAttribute.COLOR, 0, AttributeType.UBYTE4, 3 * floatSize, vertexSize)
+            .normalized(VertexAttribute.COLOR)
             .build(engine)
 
         vertexBuffer.setBufferAt(engine, 0, vertexData)
 
-        val indexData = ByteBuffer.allocate(6 * 2 * 3 * shortSize)
+        val indexData = ByteBuffer.allocate(6 * shortSize)
             .order(ByteOrder.nativeOrder())
-        repeat(6) {
-            val i = (it * 4).toShort()
-            indexData
-                .putShort(i).putShort((i + 1).toShort()).putShort((i + 2).toShort())
-                .putShort(i).putShort((i + 2).toShort()).putShort((i + 3).toShort())
-        }
-        indexData.flip()
+            .putShort(0)
+            .putShort(1)
+            .putShort(2)
+            .putShort(1)
+            .putShort(3)
+            .putShort(2)
+            .flip()
 
         indexBuffer = IndexBuffer.Builder()
-            .indexCount(vertexCount * 2)
+            .indexCount(6)
             .bufferType(IndexBuffer.Builder.IndexType.USHORT)
             .build(engine)
+
         indexBuffer.setBuffer(engine, indexData)
     }
 
     private fun setMaterial() {
-        assets.openFd("materials/lit.filamat").use { fd ->
+        assets.openFd("materials/baked_color.filamat").use { fd ->
             val input = fd.createInputStream()
             val dst = ByteBuffer.allocate(fd.length.toInt())
 
@@ -300,22 +246,17 @@ class CubeActivity : ComponentActivity() {
             }
             engine.flush()
         }
-
-        materialInstance = material.createInstance()
-        materialInstance.setParameter("baseColor", Colors.RgbType.SRGB, 1.0f, 0.85f, 0.57f)
-        materialInstance.setParameter("metallic", 0.0f)
-        materialInstance.setParameter("roughness", 0.3f)
     }
 
     private fun startAnimation() {
         animator.interpolator = LinearInterpolator()
-        animator.duration = 6000
+        animator.duration = 4000
         animator.repeatMode = ValueAnimator.RESTART
         animator.repeatCount = ValueAnimator.INFINITE
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             val transformMatrix = FloatArray(16)
             override fun onAnimationUpdate(a: ValueAnimator) {
-                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 1.0f, 1.0f, 1.0f)
+                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
                 val tcm = engine.transformManager
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
             }
@@ -338,20 +279,20 @@ class CubeActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
-        animator.start()
+        //animator.start()
     }
 
     override fun onPause() {
         super.onPause()
         choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel()
+        //animator.cancel()
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel()
+        //animator.cancel()
         uiHelper.detach()
 
         engine.destroyEntity(renderable)
@@ -370,3 +311,5 @@ class CubeActivity : ComponentActivity() {
         engine.destroy()
     }
 }
+
+
