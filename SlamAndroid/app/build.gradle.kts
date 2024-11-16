@@ -94,6 +94,8 @@ dependencies {
 //  implementation(libs.gltfio.android)
 //  implementation(libs.filament.utils.android)
 
+    implementation(libs.lottie.compose)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
