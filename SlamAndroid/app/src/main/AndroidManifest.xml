@@ -31,8 +31,9 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".CubeActivity" />
-        <activity android:name=".CameraActivity" />
+        <activity android:name=".filament.test.TriangleActivity" />
+        <activity android:name=".filament.test.CubeActivity" />
+        <activity android:name=".filament.test.CameraActivity" />
     </application>
 
 </manifest>

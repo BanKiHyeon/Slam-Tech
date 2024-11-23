@@ -1,13 +1,16 @@
-package com.tonecolor.slamandroid
+package com.tonecolor.slamandroid.filament.test
 
-import android.os.Build
+import android.animation.ValueAnimator
+import android.opengl.Matrix
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
+import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.app.ActivityCompat
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
@@ -27,26 +29,32 @@ import com.google.android.filament.IndexBuffer
 import com.google.android.filament.LightManager
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
+import com.google.android.filament.MathUtils
 import com.google.android.filament.RenderableManager
+import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
+import com.google.android.filament.SwapChainFlags
 import com.google.android.filament.VertexBuffer
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
-
 import com.tonecolor.slamandroid.ui.theme.SlamAndroidTheme
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
 
-class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsResultCallback  {
-    init {
-        Filament.init()
+class CubeActivity : ComponentActivity() {
+    companion object {
+        init {
+            Filament.init()
+        }
     }
 
     private lateinit var surfaceView: SurfaceView
@@ -68,16 +76,12 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
 
-    private lateinit var cameraHelper: CameraHelper
+    private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
     private var frameScheduler = object : Choreographer.FrameCallback {
-        @RequiresApi(Build.VERSION_CODES.Q)
         override fun doFrame(frameTimeNanos: Long) {
             choreographer.postFrameCallback(this)
             if (uiHelper.isReadyToRender) {
-
-                cameraHelper.pushExternalImageToFilament()
-
                 if (swapChain != null && renderer.beginFrame(swapChain!!, frameTimeNanos)) {
                     renderer.render(view)
                     renderer.endFrame()
@@ -102,17 +106,13 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
         uiHelper.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(surface: Surface) {
-                /*swapChain?.let { engine.destroySwapChain(it) }
+                swapChain?.let { engine.destroySwapChain(it) }
                 val flags = if (SwapChain.isSRGBSwapChainSupported(engine)) {
                     uiHelper.swapChainFlags or SwapChainFlags.CONFIG_SRGB_COLORSPACE
                 } else {
                     uiHelper.swapChainFlags
                 }
                 swapChain = engine.createSwapChain(surface, flags)
-                displayHelper.attach(renderer, surfaceView.display)
-                */
-                swapChain?.let { engine.destroySwapChain(it) }
-                swapChain = engine.createSwapChain(surface)
                 displayHelper.attach(renderer, surfaceView.display)
             }
 
@@ -126,7 +126,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             }
 
             override fun onResized(width: Int, height: Int) {
-                val zoom = 1.0
+                val zoom = 1.5
                 val aspect = width.toDouble() / height.toDouble()
                 camera.setProjection(
                     Camera.Projection.ORTHO,
@@ -134,15 +134,8 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
                 )
                 view.viewport = Viewport(0, 0, width, height)
                 FilamentHelper.synchronizePendingFrames(engine)
-                /*val aspect = width.toDouble() / height.toDouble()
-                camera.setProjection(45.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
-
-                view.viewport = Viewport(0, 0, width, height)
-
-                FilamentHelper.synchronizePendingFrames(engine)*/
             }
         }
-
         uiHelper.attachTo(surfaceView)
 
         engine = Engine.create()
@@ -164,7 +157,7 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
             //.boundingBox(Box(-0.5f, -0.5f, 0.0f, 0.5f, 0.5f, 0.01f))
-            .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6)
+            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 6 * 6)
             .material(0, materialInstance)
             .build(engine, renderable)
 
@@ -183,10 +176,9 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         scene.addEntity(light)
 
         camera.setExposure(16.0f, 1.0f / 125.0f, 100.0f)
-        camera.lookAt(0.0, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+        camera.lookAt(0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
-        cameraHelper = CameraHelper(this, engine, materialInstance)
-        cameraHelper.openCamera()
+        startAnimation()
 
         setContent {
             SlamAndroidTheme {
@@ -197,7 +189,6 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
 
     private fun setMesh() {
         val floatSize = 4
-        val intSize = 4
         val shortSize = 2
         val vertexSize = 3 * floatSize + 4 * floatSize
 
@@ -212,52 +203,84 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             return this
         }
 
-        val vertexCount = 4
-        val tf = FloatArray(4)
+        val vertexCount = 6 * 4
 
-//        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, tf)
-//        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f, tf)
-//        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, tf)
-//        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, tf)
-//        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, tf)
-//        MathUtils.packTangentFrame(0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, tf)
+        val tfPX = FloatArray(4)
+        val tfNX = FloatArray(4)
+        val tfPY = FloatArray(4)
+        val tfNY = FloatArray(4)
+        val tfPZ = FloatArray(4)
+        val tfNZ = FloatArray(4)
+
+        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, tfPX)
+        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f, tfNX)
+        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, tfPY)
+        MathUtils.packTangentFrame(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, tfNY)
+        MathUtils.packTangentFrame(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, tfPZ)
+        MathUtils.packTangentFrame(0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, tfNZ)
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(1f, -1.0f, 0f, tf))
-            .put(Vertex(1f, 1.0f, 0f, tf))
-            .put(Vertex(-1f, -1.0f, 0f, tf))
-            .put(Vertex(-1f, 1.0f, 0f, tf))
+            // Face -Z
+            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNZ))
+            .put(Vertex(-1.0f, 1.0f, -1.0f, tfNZ))
+            .put(Vertex(1.0f, 1.0f, -1.0f, tfNZ))
+            .put(Vertex(1.0f, -1.0f, -1.0f, tfNZ))
+            // Face +X
+            .put(Vertex(1.0f, -1.0f, -1.0f, tfPX))
+            .put(Vertex(1.0f, 1.0f, -1.0f, tfPX))
+            .put(Vertex(1.0f, 1.0f, 1.0f, tfPX))
+            .put(Vertex(1.0f, -1.0f, 1.0f, tfPX))
+            // Face +Z
+            .put(Vertex(-1.0f, -1.0f, 1.0f, tfPZ))
+            .put(Vertex(1.0f, -1.0f, 1.0f, tfPZ))
+            .put(Vertex(1.0f, 1.0f, 1.0f, tfPZ))
+            .put(Vertex(-1.0f, 1.0f, 1.0f, tfPZ))
+            // Face -X
+            .put(Vertex(-1.0f, -1.0f, 1.0f, tfNX))
+            .put(Vertex(-1.0f, 1.0f, 1.0f, tfNX))
+            .put(Vertex(-1.0f, 1.0f, -1.0f, tfNX))
+            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNX))
+            // Face -Y
+            .put(Vertex(-1.0f, -1.0f, 1.0f, tfNY))
+            .put(Vertex(-1.0f, -1.0f, -1.0f, tfNY))
+            .put(Vertex(1.0f, -1.0f, -1.0f, tfNY))
+            .put(Vertex(1.0f, -1.0f, 1.0f, tfNY))
+            // Face +Y
+            .put(Vertex(-1.0f, 1.0f, -1.0f, tfPY))
+            .put(Vertex(-1.0f, 1.0f, 1.0f, tfPY))
+            .put(Vertex(1.0f, 1.0f, 1.0f, tfPY))
+            .put(Vertex(1.0f, 1.0f, -1.0f, tfPY))
             .flip()
 
         vertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(vertexCount)
-            .attribute(VertexBuffer.VertexAttribute.POSITION, 0, VertexBuffer.AttributeType.FLOAT3, 0, vertexSize)
-            .attribute(VertexBuffer.VertexAttribute.TANGENTS, 0, VertexBuffer.AttributeType.FLOAT4, 3 * floatSize, vertexSize)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexAttribute.TANGENTS, 0, AttributeType.FLOAT4, 3 * floatSize, vertexSize)
             .build(engine)
 
         vertexBuffer.setBufferAt(engine, 0, vertexData)
 
-        val indexData = ByteBuffer.allocate(2 * 3 * shortSize)
+        val indexData = ByteBuffer.allocate(6 * 2 * 3 * shortSize)
             .order(ByteOrder.nativeOrder())
-            .putShort(0)
-            .putShort(1)
-            .putShort(2)
-            .putShort(1)
-            .putShort(3)
-            .putShort(2)
-            .flip()
+        repeat(6) {
+            val i = (it * 4).toShort()
+            indexData
+                .putShort(i).putShort((i + 1).toShort()).putShort((i + 2).toShort())
+                .putShort(i).putShort((i + 2).toShort()).putShort((i + 3).toShort())
+        }
+        indexData.flip()
 
         indexBuffer = IndexBuffer.Builder()
-            .indexCount(6)
+            .indexCount(vertexCount * 2)
             .bufferType(IndexBuffer.Builder.IndexType.USHORT)
             .build(engine)
         indexBuffer.setBuffer(engine, indexData)
     }
 
     private fun setMaterial() {
-        assets.openFd("materials/camera_lit.filamat").use { fd ->
+        assets.openFd("materials/lit.filamat").use { fd ->
             val input = fd.createInputStream()
             val dst = ByteBuffer.allocate(fd.length.toInt())
 
@@ -268,11 +291,36 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
             val mat = dst.apply { rewind() }
 
             material = Material.Builder().payload(mat, mat.remaining()).build(engine)
+            material.compile(
+                Material.CompilerPriorityQueue.HIGH,
+                Material.UserVariantFilterBit.ALL,
+                Handler(Looper.getMainLooper())
+            ) {
+                android.util.Log.i("Material", "Material " + material.name + " compiled.")
+            }
+            engine.flush()
         }
 
         materialInstance = material.createInstance()
         materialInstance.setParameter("baseColor", Colors.RgbType.SRGB, 1.0f, 0.85f, 0.57f)
+        materialInstance.setParameter("metallic", 0.0f)
         materialInstance.setParameter("roughness", 0.3f)
+    }
+
+    private fun startAnimation() {
+        animator.interpolator = LinearInterpolator()
+        animator.duration = 6000
+        animator.repeatMode = ValueAnimator.RESTART
+        animator.repeatCount = ValueAnimator.INFINITE
+        animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
+            val transformMatrix = FloatArray(16)
+            override fun onAnimationUpdate(a: ValueAnimator) {
+                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 1.0f, 1.0f, 1.0f)
+                val tcm = engine.transformManager
+                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+            }
+        })
+        animator.start()
     }
 
     @Composable
@@ -290,22 +338,22 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
-        cameraHelper.onResume()
+        animator.start()
     }
 
     override fun onPause() {
         super.onPause()
         choreographer.removeFrameCallback(frameScheduler)
-        cameraHelper.onPause()
+        animator.cancel()
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
         choreographer.removeFrameCallback(frameScheduler)
+        animator.cancel()
         uiHelper.detach()
 
-        engine.destroyEntity(light)
         engine.destroyEntity(renderable)
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
@@ -313,25 +361,12 @@ class CameraActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsR
         engine.destroyCameraComponent(camera.entity)
         engine.destroyVertexBuffer(vertexBuffer)
         engine.destroyIndexBuffer(indexBuffer)
-        engine.destroyMaterialInstance(materialInstance)
         engine.destroyMaterial(material)
 
         val entityManager = EntityManager.get()
-        entityManager.destroy(light)
         entityManager.destroy(renderable)
         entityManager.destroy(camera.entity)
 
         engine.destroy()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (!cameraHelper.onRequestPermissionsResult(requestCode, grantResults)) {
-            this.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        }
     }
 }
