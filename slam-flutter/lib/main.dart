@@ -6,6 +6,7 @@ void main() {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -36,6 +37,48 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
+      body: const Center(
+        child: CustomPainterExample(),
+      ),
     );
+  }
+}
+
+class CustomPainterExample extends StatelessWidget {
+  const CustomPainterExample({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: MyPainter(),
+      child: const SizedBox(
+        width: 200,
+        height: 200,
+      ),
+    );
+  }
+}
+
+class MyPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, 0);
+
+    canvas.drawPath(path, paint);
+
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
