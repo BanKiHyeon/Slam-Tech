@@ -1,84 +1,120 @@
+import 'dart:typed_data';
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'controller/opencv_helper.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  CameraController? controller;
+  Future<void>? initializeControllerFuture;
+  bool isProcessing = false;
+  Uint8List? grayImageBytes;
+  OpenCVHelper opencvHelper = OpenCVHelper();
+
+  @override
+  void initState() {
+    super.initState();
+    initializeCamera();
+  }
+
+  Future<void> initializeCamera() async {
+    final cameras = await availableCameras();
+    final firstCamera = cameras.first;
+
+    controller = CameraController(
+      firstCamera,
+      ResolutionPreset.high,
+    );
+
+    initializeControllerFuture = controller!.initialize();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+
+  void processImage(CameraImage image) async {
+    if (isProcessing) return;
+    isProcessing = true;
+    try {
+      final frame = opencvHelper.convertYUVToRGB(image);
+      final (gray) = await opencvHelper.convertRGBToGray(frame);
+      final (orb) = await opencvHelper.extractOrbFeatures(gray, frame);
+      grayImageBytes = opencvHelper.convertMatToImage(orb);
+
+      setState(() {});
+    } catch (e) {
+      print("Error processing image: $e");
+    } finally {
+      isProcessing = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Slam Flutter',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen),
-        useMaterial3: true,
+      home: Scaffold(
+        body: FutureBuilder<void>(
+          future: initializeControllerFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        child: CameraPreview(controller!),
+                      ),
+                      if (grayImageBytes != null)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SizedBox(
+                            width: constraints.maxWidth,
+                            height: constraints.maxHeight * 0.5,
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight * 0.5,
+                              child: Image.memory(grayImageBytes!),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              );
+            } else {
+              return const Center(child: CircularProgressIndicator());
+            }
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            try {
+              await initializeControllerFuture;
+              controller!.startImageStream(processImage);
+            } catch (e) {
+              print("Error starting camera stream: $e");
+            }
+          },
+          child: const Icon(Icons.camera),
+        ),
       ),
-      home: const MyHomePage(title: 'Slam Flutter'),
     );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: const Center(
-        child: CustomPainterExample(),
-      ),
-    );
-  }
-}
-
-class CustomPainterExample extends StatelessWidget {
-  const CustomPainterExample({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: MyPainter(),
-      child: const SizedBox(
-        width: 200,
-        height: 200,
-      ),
-    );
-  }
-}
-
-class MyPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, 0);
-
-    canvas.drawPath(path, paint);
-
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
   }
 }
